@@ -1,0 +1,12 @@
+% layout 'default';
+% title 'Результат поиска';
+
+<p> 
+<div><h3>Snippet #<%= $txt->[0]->{snip_id} %></h3> </div> 
+
+% foreach my $row (@$txt) {
+  <div><h5>file #<%= $row->{id} %></h5> </div> 
+  <pre><code><%= $row->{f_content} %></code></pre> 
+  <br>
+% }
+</p>

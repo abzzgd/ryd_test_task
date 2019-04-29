@@ -1,0 +1,5 @@
+% layout 'default';
+% title 'Welcome';
+
+%= $err_message
+%= include 'snippet/_form', caption => 'Save', target => 'save'

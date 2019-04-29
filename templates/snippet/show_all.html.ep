@@ -1,0 +1,26 @@
+% layout 'default';
+% title 'main list of the snippets';
+
+% foreach my $row (@{$txt}) {
+<div class="snip_title">
+  <div><%= link_to 'snippet #'.$row->{id} => show_snip => {id => $row->{id}} %></div>
+  <div><%= $row->{t} %></div>    
+  <div>total files <%= $row->{count} %></div>    
+</div>
+<pre><code>
+% $row->{f_content} = $& if $row->{f_content}=~ /(.*\n){1,10}/; 
+%=   $row->{f_content}
+</code></pre>    
+% }
+
+<p>
+%= bootstrap_pagination( $current_page, $total_pages, );
+</p>
+<br>
+<br>
+<div><%= link_to 'new snippet' => 'create'  %></div>
+<br>
+<br>
+% foreach my $row (@{$lngs}) {
+<div><%= $row->{lang} %> : <%= $row->{count} %> files </div>
+% }

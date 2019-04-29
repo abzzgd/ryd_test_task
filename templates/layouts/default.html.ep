@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.6/styles/default.min.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.6/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <style>
+      textarea           { height: 100pt; width: 700pt; }
+      input[type="text"] { width: 650pt;}
+      ul.pagination li   { display: inline; margin-right:10px; }
+      .snip_title div    { display: inline-block; margin-right:90px; margin-top:20px;}
+    </style>
+  </head>
+  <body><%= content %></body>
+</html>
