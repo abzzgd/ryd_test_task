@@ -2,7 +2,6 @@ package Snip::Controller::Snippet;
 use Mojo::Base 'Mojolicious::Controller';
 use Mojo::Base -base;
 use Mojo::UserAgent;
-use POSIX qw(strftime);
 use Mojo::Upload;
 
 sub show_all {
@@ -63,12 +62,11 @@ sub save {
   my $v = $self->_validation;
 
   if (scalar @{$v->passed}) {
-    my $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
     my $db = $self->pg->db;
     my $snip_id;
     eval {
       my $tx = $db->begin;
-      $snip_id = $db->insert('snippets', {t => $datestring}, {returning => 'id'})->hash->{id};
+      $snip_id = $db->insert('snippets', {t => \'now()'}, {returning => 'id'})->hash->{id};
 
       foreach my $field (@{$v->passed}) {
         if ($field eq 'f_url') {
