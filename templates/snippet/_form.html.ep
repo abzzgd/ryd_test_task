@@ -1,4 +1,4 @@
-%= form_for $target => begin
+%= form_for $target => (enctype=>"multipart/form-data")  => begin
   <div>
     <br>
     %= label_for f_name=> 'File name'
@@ -24,7 +24,7 @@
   <input type = "button" onclick = "add('f_url');" value = ' + '>
   <br>
   <br>
-  %= file_field 'f_opn' 
+  %= file_field 'f_opn', multiple => "multiple" 
   <br>
   %= submit_button $caption
 % end

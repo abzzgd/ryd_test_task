@@ -3,6 +3,7 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::Base -base;
 use Mojo::UserAgent;
 use POSIX qw(strftime);
+use Mojo::Upload;
 
 sub show_all {
   my $self = shift;
@@ -78,8 +79,15 @@ sub save {
             my $lang      = $self->every_param('lang_url')->[$_];
             $db->insert('files', {f_content => $f_content, lang => $lang, snip_id => $snip_id});
           }  
+        } 
 
-        } else {         # $field eq 'f_content' || 'f_opn'
+        if (($field eq 'f_opn') && $v->param($field)->filename) {
+
+          foreach (@{$v->every_param($field)}) {
+            $db->insert('files', {f_content => $_->slurp, f_name => $_->filename, snip_id => $snip_id});
+          }
+
+        } else {         # $field eq 'f_content'
 
           foreach (0..$#{$v->every_param($field)}) {
             my $f_content = $v->every_param($field)->[$_];
@@ -95,9 +103,9 @@ sub save {
     } else {
       $self->redirect_to('show_snip', id => $snip_id);
     }
+
   } else {
-  $self->redirect_to('create');
-  
+    $self->redirect_to('create');
   } 
 }
 
