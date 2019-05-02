@@ -1,11 +1,11 @@
 %= form_for $target => (enctype=>"multipart/form-data")  => begin
+    %= label_for lang => 'programming language'
+    %= select_field lang => ['none', 'c++', 'python', 'perl', 'java', 'javascript' ]
   <div>
     <br>
     %= label_for f_name=> 'File name'
     %= text_field 'f_name' 
     <br>
-    %= label_for lang => 'programming language'
-    %= select_field lang => ['none', 'c++', 'python', 'perl', 'java', 'javascript' ]
     <br>
     %= text_area 'f_content'
     <br>
@@ -13,8 +13,6 @@
   <input type = "button" onclick = "add('f_content');" value = ' + '>
   <div>
     <br>
-    %= label_for lang_url => 'programming language'
-    %= select_field lang_url => ['none', 'c++', 'python', 'perl', 'java', 'javascript' ]
     <br>
     %= label_for f_url=> ' link to file'
     <br>
@@ -36,11 +34,9 @@
     var div     = t[last].parentNode;
     var div_new = div.cloneNode(true);
     if (t_name == 'f_content') {
-      div_new.childNodes[5].value  = '';
-      div_new.childNodes[15].value = '';
-    } else {
-      div_new.childNodes[13].value = '';
+      div_new.getElementsByTagName('textarea')[0].value = '';
     }
+    div_new.getElementsByTagName('input')[0].value = '';
 
     div.parentNode.insertBefore(div_new, div.nextSibling);
   }

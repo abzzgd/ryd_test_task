@@ -28,7 +28,7 @@ sub show_all {
   )->hashes->to_array;
 
   my $lngs = $self->pg->db->query(
-    "select lang,count(*) from files group by lang"
+    "select lang,count(*) from snippets group by lang"
   )->hashes->to_array;
 
   $self->render(
@@ -66,16 +66,18 @@ sub save {
     my $snip_id;
     eval {
       my $tx = $db->begin;
-      $snip_id = $db->insert('snippets', {t => \'now()'}, {returning => 'id'})->hash->{id};
-
+      $snip_id = $db->insert(
+        'snippets',
+        {t => \'now()', lang => $self->param('lang')},
+        {returning => 'id'}
+      )->hash->{id};
       foreach my $field (@{$v->passed}) {
         if ($field eq 'f_url') {
           my $ua = Mojo::UserAgent->new();
  
-          foreach (0..$#{$v->every_param($field)}) {
-            my $f_content = $ua->get($v->every_param($field)->[$_])->res->text;
-            my $lang      = $self->every_param('lang_url')->[$_];
-            $db->insert('files', {f_content => $f_content, lang => $lang, snip_id => $snip_id});
+          foreach (@{$v->every_param($field)}) {
+            my $f_content = $ua->get($_)->res->text;
+            $db->insert('files', {f_content => $f_content, snip_id => $snip_id});
           }  
         } 
 
@@ -85,12 +87,12 @@ sub save {
             $db->insert('files', {f_content => $_->slurp, f_name => $_->filename, snip_id => $snip_id});
           }
 
-        } else {         # $field eq 'f_content'
+        } 
+        if ($field eq 'f_content') {
 
           foreach (0..$#{$v->every_param($field)}) {
             my $f_content = $v->every_param($field)->[$_];
-            my $lang      = $self->every_param('lang')->[$_];
-            $db->insert('files', {f_content => $f_content, lang => $lang, snip_id => $snip_id});
+            $db->insert('files', {f_content => $f_content, snip_id => $snip_id});
           }
         }
       }
