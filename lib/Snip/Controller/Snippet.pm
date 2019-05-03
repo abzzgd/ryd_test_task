@@ -21,10 +21,10 @@ sub show_all {
     
       from files f
       join
-      (select * from snippets order by t limit $snips_on_page offset $ofs ) s
+      (select * from snippets order by t limit ? offset ?) s
       on snip_id = s.id
       ) ff
-    where num = 1"
+    where num = 1", $snips_on_page, $ofs 
   )->hashes->to_array;
 
   my $lngs = $self->pg->db->query(
