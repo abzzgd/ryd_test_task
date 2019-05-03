@@ -6,7 +6,10 @@ sub startup {
   my $self = shift;
   my $config = $self->plugin('Config');
   $self->secrets($config->{secrets});
-  $self->plugin('bootstrap_pagination');
+  $self->plugin('TagHelpers::Pagination' => {
+    separator => ' ',
+    current => '<strong>{current}</strong>'
+  });
 
   $self->helper(pg => sub { state $pg = Mojo::Pg->new(shift->config('pg')) });
 

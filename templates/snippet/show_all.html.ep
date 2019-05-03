@@ -14,7 +14,7 @@
 % }
 
 <p>
-%= bootstrap_pagination( $current_page, $total_pages, );
+%= pagination( $current_page, $total_pages => '/?page={page}');
 </p>
 <br>
 <br>
