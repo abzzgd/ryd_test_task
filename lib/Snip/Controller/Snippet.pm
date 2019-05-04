@@ -77,7 +77,8 @@ sub save {
  
           foreach (@{$v->every_param($field)}) {
             my $f_content = $ua->get($_)->res->text;
-            $db->insert('files', {f_content => $f_content, snip_id => $snip_id});
+            /[^\/]*$/;
+            $db->insert('files', {f_content => $f_content, f_name=> $&, snip_id => $snip_id});
           }  
         } 
 
