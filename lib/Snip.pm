@@ -18,6 +18,8 @@ sub startup {
   $r->get('/create')->to('snippet#create')->name('create');
   $r->post('/')->to('snippet#save')->name('save');
   $r->get('/snip/:id')->to('snippet#show')->name('show_snip');
+  $r->get('/:hsh')->to('snippet#show');    # for snippet on secret link  
+
 }
 
 1;

@@ -22,5 +22,5 @@
 <br>
 <br>
 % foreach my $row (@{$lngs}) {
-<div><%= $row->{lang} %> : <%= $row->{count} %> files </div>
+<div><%= $row->{lang} %> : <%= $row->{count} %> snippets </div>
 % }

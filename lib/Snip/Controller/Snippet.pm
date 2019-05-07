@@ -21,7 +21,7 @@ sub show_all {
     
       from files f
       join
-      (select * from snippets order by t limit ? offset ?) s
+      (select * from snippets where pub = '1' order by t limit ? offset ?) s
       on snip_id = s.id
       ) ff
     where num = 1", $snips_on_page, $ofs 
@@ -42,11 +42,24 @@ sub show_all {
 
 sub show {
   my $self = shift;
-  my $snip_id = $self->param('id'); 
-
+  my $snip_id;
+  my $db = $self->pg->db;
+  if ($self->param('id')) {
+    $snip_id = $self->param('id');
+    # checking if snippet is not public
+    my $public = $db->select('snippets','pub',{id => $self->param('id')})->hash->{'pub'};
+    if ($public != '1') {
+      $self->redirect_to('show_all_snips');
+      return;
+    }
+  }
+  # secret link  
+  if ($self->param('hsh')) {
+    $snip_id = $db->select('snippets','id',{pub => $self->param('hsh')})->hash->{'id'};
+  }
   # 'show selected snip', 
   $self->render( 
-    txt => $self->pg->db->select('files', '*', {snip_id => $snip_id})->hashes->to_array,
+    txt => $db->select('files', '*', {snip_id => $snip_id})->hashes->to_array,
   );
 }
 
@@ -68,7 +81,7 @@ sub save {
       my $tx = $db->begin;
       $snip_id = $db->insert(
         'snippets',
-        {t => \'now()', lang => $self->param('lang')},
+        {t => \'now()', lang => $self->param('lang'), pub => 1},
         {returning => 'id'}
       )->hash->{id};
       foreach my $field (@{$v->passed}) {
