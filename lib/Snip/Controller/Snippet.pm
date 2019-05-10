@@ -77,11 +77,14 @@ sub save {
   if (scalar @{$v->passed}) {
     my $db = $self->pg->db;
     my $snip_id;
+    my $lang = $self->param('lang');
+    if ($lang eq 'none') { $lang = $self->_language_from_filename; } 
+    my $lng_ini = $lang;   # memorize initial value
     eval {
       my $tx = $db->begin;
       $snip_id = $db->insert(
         'snippets',
-        {t => \'now()', lang => $self->param('lang'), pub => 1},
+        {t => \'now()', lang => $lang, pub => 1},
         {returning => 'id'}
       )->hash->{id};
       foreach my $field (@{$v->passed}) {
@@ -92,13 +95,20 @@ sub save {
             my $f_content = $ua->get($_)->res->text;
             /[^\/]*$/;
             $db->insert('files', {f_content => $f_content, f_name=> $&, snip_id => $snip_id});
+            if ($lang eq 'none') { 
+              $lang = $self->_language_from_shebang($f_content);
+            }
           }  
         } 
 
         if (($field eq 'f_opn') && $v->param($field)->filename) {
 
           foreach (@{$v->every_param($field)}) {
-            $db->insert('files', {f_content => $_->slurp, f_name => $_->filename, snip_id => $snip_id});
+            my $f_content = $_->slurp;
+            $db->insert('files', {f_content => $f_content, f_name => $_->filename, snip_id => $snip_id});
+            if ($lang eq 'none') { 
+              $lang = $self->_language_from_shebang($f_content);
+            }
           }
 
         } 
@@ -107,6 +117,9 @@ sub save {
           foreach (0..$#{$v->every_param($field)}) {
             my $f_content = $v->every_param($field)->[$_];
             $db->insert('files', {f_content => $f_content, snip_id => $snip_id});
+            if ($lang eq 'none') { 
+              $lang = $self->_language_from_shebang($f_content);
+            }
           }
         }
       }
@@ -115,6 +128,10 @@ sub save {
     if ($@) {
       $self->redirect_to('create', err_message => $@);
     } else {
+      if (($lng_ini eq 'none') && ($lang ne 'none')) {  
+        # correction of language
+        $db->update('snippets', {lang => $lang}, {id => $snip_id});
+      }
       $self->redirect_to('show_snip', id => $snip_id);
     }
 
@@ -133,6 +150,29 @@ sub _validation {
   $v->required('f_opn');
   
   return $v;
+}
+
+sub _language_from_filename {
+  my $self = shift;
+  my %list = qw(cpp c++ py python pl perl java java js javascript);
+  my $lng; 
+  for my $t (map /\.(\w*)$/, @{$self->every_param('f_url')}) {
+    return $list{$lng} if ($lng) = grep /^$t$/, keys %list; 
+  }  
+  
+  for my $t (map $_->filename =~ /\.(\w*)$/, @{$self->every_param('f_opn')}) {
+    return $list{$lng} if ($lng) = grep /^$t$/, keys %list; 
+  }
+  return 'none';
+}
+
+sub _language_from_shebang {
+  my $self      = shift;
+  my $f_content = shift;
+  my @list = qw(c++ python perl java javascript);
+  $f_content =~ /#!.*\/(\w+)/g;
+  (my $lng) = grep (/^$1$/, @list); 
+  return $lng || 'none';
 }
 
 1;
