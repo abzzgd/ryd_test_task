@@ -3,6 +3,9 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::Base -base;
 use Mojo::UserAgent;
 use Mojo::Upload;
+use Mojo::Promise;
+use Mojo::AsyncAwait;
+
 
 sub show_all {
   my $self = shift;
@@ -73,81 +76,91 @@ sub save {
   my $self = shift;
 
   my $v = $self->_validation;
+  if (!(scalar @{$v->passed})) {
+    $self->redirect_to('create');
+    return;
+  }
 
-  if (scalar @{$v->passed}) {
-    my $db = $self->pg->db;
-    my $snip_id;
-    my $lang = $self->param('lang');
-    if ($lang eq 'none') { $lang = $self->_language_from_filename; } 
-    my $lng_ini = $lang;   # memorize initial value
-    eval {
+  my $lang = $self->param('lang');
+  if ($lang eq 'none') { $lang = $self->_language_from_filename; } 
+
+  async get_f_content => sub {
+    my $url  = shift;
+    my $tx = await $self->ua->get_p($url);
+    return $tx->result->text;
+  };
+
+  async f_urls => sub {
+    my $urls = shift;
+    my $ref_f_contents = shift;
+    my @promises = map {get_f_content($_);}@$urls;
+    push @$ref_f_contents, map {$_->[0]} await Mojo::Promise->all(@promises);
+    return $ref_f_contents;
+  };
+ 
+  my @f_contents;
+  @f_contents = @{$v->every_param('f_content')}; 
+  push @f_contents, map {$_->slurp;} @{$v->every_param('f_opn')};
+  if (@{$v->every_param('f_url')}) {
+    # do it in non-blocking way
+    $self->render_later;
+    f_urls($v->every_param('f_url'),\@f_contents)->then(sub { 
+      my $ref_f_contents = shift;
+      if ($lang eq 'none') { 
+        $lang = $self->_language_from_shebang($ref_f_contents);
+      }
+      $self->_insert_new_snip($lang, $ref_f_contents);
+    })->wait;
+  } else {
+    # ordinary way
+    if ($lang eq 'none') { 
+      $lang = $self->_language_from_shebang(\@f_contents);
+    }
+    $self->_insert_new_snip($lang, \@f_contents);
+  }
+
+    
+}
+
+sub _insert_new_snip {
+  my ($self, $lang, $ref_f_content) = @_;
+  my $db = $self->pg->db;
+  my $snip_id;
+  eval {
       my $tx = $db->begin;
       $snip_id = $db->insert(
         'snippets',
         {t => \'now()', lang => $lang, pub => 1},
         {returning => 'id'}
       )->hash->{id};
-      foreach my $field (@{$v->passed}) {
-        if ($field eq 'f_url') {
-          my $ua = Mojo::UserAgent->new();
- 
-          foreach (@{$v->every_param($field)}) {
-            my $f_content = $ua->get($_)->res->text;
-            /[^\/]*$/;
-            $db->insert('files', {f_content => $f_content, f_name=> $&, snip_id => $snip_id});
-            if ($lang eq 'none') { 
-              $lang = $self->_language_from_shebang($f_content);
-            }
-          }  
-        } 
-
-        if (($field eq 'f_opn') && $v->param($field)->filename) {
-
-          foreach (@{$v->every_param($field)}) {
-            my $f_content = $_->slurp;
-            $db->insert('files', {f_content => $f_content, f_name => $_->filename, snip_id => $snip_id});
-            if ($lang eq 'none') { 
-              $lang = $self->_language_from_shebang($f_content);
-            }
-          }
-
-        } 
-        if ($field eq 'f_content') {
-
-          foreach (0..$#{$v->every_param($field)}) {
-            my $f_content = $v->every_param($field)->[$_];
-            $db->insert('files', {f_content => $f_content, snip_id => $snip_id});
-            if ($lang eq 'none') { 
-              $lang = $self->_language_from_shebang($f_content);
-            }
-          }
-        }
+      for (@$ref_f_content) {
+        $db->insert('files', {f_content => $_, snip_id => $snip_id});
       }
       $tx->commit;
-    };
-    if ($@) {
-      $self->redirect_to('create', err_message => $@);
-    } else {
-      if (($lng_ini eq 'none') && ($lang ne 'none')) {  
-        # correction of language
-        $db->update('snippets', {lang => $lang}, {id => $snip_id});
-      }
-      $self->redirect_to('show_snip', id => $snip_id);
-    }
-
+  };
+  if ($@) {
+    $self->redirect_to('create', err_message => $@);
   } else {
-    $self->redirect_to('create');
-  } 
+    $self->redirect_to('show_snip', id => $snip_id);
+  }
 }
 
 sub _validation {
   my $self = shift;
-
   my $v = $self->validation;
+  $v->validator->add_check(emptyUpload => sub {
+    my $v = shift;
+    my $name = $v->topic;
+    if (!$v->param->filename) {
+      $v->output->{$name} = undef;
+    }
+    return $v;
+  });
+
 #  $v->required('f_name');
   $v->required('f_content');
   $v->required('f_url');
-  $v->required('f_opn');
+  $v->optional('f_opn')->emptyUpload;
   
   return $v;
 }
@@ -167,12 +180,15 @@ sub _language_from_filename {
 }
 
 sub _language_from_shebang {
-  my $self      = shift;
-  my $f_content = shift;
-  my @list = qw(c++ python perl java javascript);
-  $f_content =~ /#!.*\/(\w+)/g;
-  (my $lng) = grep (/^$1$/, @list); 
-  return $lng || 'none';
+  my $self           = shift;
+  my $ref_f_contents = shift;
+  my @list           = qw(c++ python perl java javascript);
+  foreach my $f_content (@$ref_f_contents) {
+    $f_content =~ /#!.*\/(\w+)/g;
+    (my $lng) = grep (/^$1$/, @list); 
+    return $lng if $lng;
+  }
+  return 'none';
 }
 
 1;
