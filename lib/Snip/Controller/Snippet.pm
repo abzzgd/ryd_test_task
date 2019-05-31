@@ -62,7 +62,7 @@ sub show {
   }
   # 'show selected snip', 
   $self->render( 
-    txt => $db->select('files', '*', {snip_id => $snip_id})->hashes->to_array,
+    txt => $db->select('files', '*', {snip_id => $snip_id},'id')->hashes->to_array,
   );
 }
 
