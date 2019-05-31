@@ -98,32 +98,35 @@ sub save {
     return $ref_f_contents;
   };
  
-  my @f_contents;
-  @f_contents = @{$v->every_param('f_content')}; 
-  push @f_contents, map {$_->slurp;} @{$v->every_param('f_opn')};
+  my @f_names;
+  my @f_contents = @{$v->every_param('f_content')};
+  @f_names = @{$v->every_param('f_name')} if @f_contents;
+  foreach (@{$v->every_param('f_opn')}) {
+    push @f_contents, $_->slurp; 
+    push @f_names, $_->filename; 
+  }
   if (@{$v->every_param('f_url')}) {
-    # do it in non-blocking way
+    push @f_names, map {/[^\/]*$/; $&;} @{$v->every_param('f_url')}; 
+    # non-blocking way
     $self->render_later;
     f_urls($v->every_param('f_url'),\@f_contents)->then(sub { 
       my $ref_f_contents = shift;
       if ($lang eq 'none') { 
         $lang = $self->_language_from_shebang($ref_f_contents);
       }
-      $self->_insert_new_snip($lang, $ref_f_contents);
+      $self->_insert_new_snip($lang, $ref_f_contents, \@f_names);
     })->wait;
   } else {
     # ordinary way
     if ($lang eq 'none') { 
       $lang = $self->_language_from_shebang(\@f_contents);
     }
-    $self->_insert_new_snip($lang, \@f_contents);
+    $self->_insert_new_snip($lang, \@f_contents, \@f_names);
   }
-
-    
 }
 
 sub _insert_new_snip {
-  my ($self, $lang, $ref_f_content) = @_;
+  my ($self, $lang, $ref_f_content, $ref_f_names) = @_;
   my $db = $self->pg->db;
   my $snip_id;
   eval {
@@ -134,7 +137,7 @@ sub _insert_new_snip {
         {returning => 'id'}
       )->hash->{id};
       for (@$ref_f_content) {
-        $db->insert('files', {f_content => $_, snip_id => $snip_id});
+        $db->insert('files', {f_content => $_, f_name => shift @$ref_f_names, snip_id => $snip_id});
       }
       $tx->commit;
   };
