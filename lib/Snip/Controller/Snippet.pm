@@ -86,6 +86,8 @@ sub save {
 
   async get_f_content => sub {
     my $url  = shift;
+    $self->ua->max_response_size(65536);
+    $self->ua->request_timeout(7);
     my $tx = await $self->ua->get_p($url);
     return $tx->result->text;
   };
@@ -100,7 +102,7 @@ sub save {
  
   my @f_names;
   my @f_contents = @{$v->every_param('f_content')};
-  @f_names = @{$v->every_param('f_name')} if @f_contents;
+  @f_names = @{$self->every_param('f_name')} if @f_contents;
   foreach (@{$v->every_param('f_opn')}) {
     push @f_contents, $_->slurp; 
     push @f_names, $_->filename; 
